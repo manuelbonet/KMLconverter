@@ -1,4 +1,4 @@
-#It can process CSV, TSV or similar file foormats
+#It can process CSV, TSV or similar file formats
 
 import re
 import math
