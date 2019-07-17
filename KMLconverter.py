@@ -13,11 +13,17 @@ def getFile(text):
         except FileNotFoundError:
             pass
 
-def getInList(text, inputList):
-    while True:
-        answer = input(text)
-        if answer in inputList:
-            return answer
+def getInList(text, inputList, ignoreCase = False):
+    if ignoreCase:
+        while True:
+            answer = input(text)
+            if answer.lower() in list(map(lambda x: x.lower(), inputList)):
+                return answer.lower()
+    else:
+        while True:
+            answer = input(text)
+            if answer in inputList:
+                return answer
 
 def getNumber(text, minimum, maximum):
     while True:
@@ -52,7 +58,7 @@ else:
 
 headersPresent = getYesNo("Are there headers?: ")
 
-if headersPresent:
+if headersPresent:  #There are headers
     headers = re.split(separator + r" *", fileText[0])
 
     print("Here are the headers: " + ", ".join(headers))
@@ -61,55 +67,118 @@ if headersPresent:
     longitudeHeader = getInList("Which is your header for longitude?: ", headers)
     altitudeHeader = getInList("Which is your header for altitude? You can leave it blank: ", headers + [""])
 
-    rawName = input("What name do you want to give to each point? You can use its values with [header] or leave it blank: ").replace(r"\n", "<br />")
-    rawDescription = input("What description do you want to give to each point? You can use its values with [header] or leave it blank: ").replace(r"\n", "<br />")
+    if not altitudeHeader == "":
+        altitudeMode = getInList("Is the altitude relative to [sea] level or to [ground]?: ", ("sea", "ground"), ignoreCase = True)
+        extrude = getYesNo("Would you like to extrude the shape?: ")
 
-    newFile = open(re.sub(r"(?:\.[^.]*)?$", ".kml", fileAddress), "w+")
+    pointsOrLine = getInList("Would you like to get [points] or a [line]?: ", ("points", "line"), ignoreCase = True)
 
-    newFile.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-    newFile.write("\n<kml xmlns=\"http://earth.google.com/kml/2.0\">")
-    newFile.write("\n\t<Document>")
+    if pointsOrLine == "points":    #There are points with headers
+        rawName = input("What name do you want to give to each point? You can use its values with [header] or leave it blank: ").replace(r"\n", "<br />")
+        rawDescription = input("What description do you want to give to each point? You can use its values with [header] or leave it blank: ").replace(r"\n", "<br />")
 
-    for point in fileText[1:]:
+        newFile = open(re.sub(r"(?:\.[^.]*)?$", ".kml", fileAddress), "w+")
+
+        newFile.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+        newFile.write("\n<kml xmlns=\"http://earth.google.com/kml/2.0\">")
+        newFile.write("\n\t<Document>")
+
+        for point in fileText[1:]:
+            
+            if not point == "":
+                splittedPoint = re.split(separator + r" *", point)
+                
+                newFile.write("\n\t\t<Placemark>")
+                
+                if not rawName == "":
+                    name = rawName
+                    
+                    for header in headers:
+                        name = name.replace("[" + header + "]", splittedPoint[headers.index(header)])
+                        
+                    newFile.write("\n\t\t\t<name>" + name + "</name>")
+                
+                if not rawDescription == "":
+                    description = rawDescription
+                    
+                    for header in headers:
+                        description = description.replace("[" + header + "]", splittedPoint[headers.index(header)])
+                        
+                    newFile.write("\n\t\t\t<description>" + description + "</description>")
+
+                newFile.write("\n\t\t\t<Point>")
+
+                if not altitudeHeader == "":
+                    if extrude:
+                        newFile.write("\n\t\t\t\t<extrude>1</extrude>")
+                    else:
+                        newFile.write("\n\t\t\t\t<extrude>0</extrude>")
+
+                    if altitudeMode == "sea":
+                        newFile.write("\n\t\t\t\t<altitudeMode>absolute</altitudeMode>")
+                    else:
+                        newFile.write("\n\t\t\t\t<altitudeMode>relativeToGround</altitudeMode>")
+
+                if not altitudeHeader == "":
+                    newFile.write("\n\t\t\t\t<coordinates>" + splittedPoint[headers.index(longitudeHeader)] + "," + splittedPoint[headers.index(latitudeHeader)] + "," + splittedPoint[headers.index(altitudeHeader)] + "</coordinates>")
+                else:
+                    newFile.write("\n\t\t\t\t<coordinates>" + splittedPoint[headers.index(longitudeHeader)] + "," + splittedPoint[headers.index(latitudeHeader)] + "</coordinates>")
+
+                newFile.write("\n\t\t\t</Point>")
+                
+                newFile.write("\n\t\t</Placemark>")
+
+        newFile.write("\n\t</Document>")
+        newFile.write("\n</kml>")
+
+        newFile.close()
         
-        if not point == "":
+    else:   #It's a LineString with headers
+        
+        newFile = open(re.sub(r"(?:\.[^.]*)?$", ".kml", fileAddress), "w+")
+
+        newFile.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+        newFile.write("\n<kml xmlns=\"http://earth.google.com/kml/2.0\">")
+        newFile.write("\n\t<Document>")
+        newFile.write("\n\t\t<Placemark>")
+        newFile.write("\n\t\t\t<Style><PolyStyle><color>7fffffff</color><colorMode>normal</colorMode><fill>1</fill></PolyStyle></Style>")
+        newFile.write("\n\t\t\t<LineString>")
+
+        
+        if altitudeHeader == "":
+            newFile.write("\n\t\t\t\t<altitudeMode>clampToGround</altitudeMode>")
+        else:
+            if extrude:
+                newFile.write("\n\t\t\t\t<extrude>1</extrude>")
+            else:
+                newFile.write("\n\t\t\t\t<extrude>0</extrude>")
+
+            if altitudeMode == "sea":
+                newFile.write("\n\t\t\t\t<altitudeMode>absolute</altitudeMode>")
+            else:
+                newFile.write("\n\t\t\t\t<altitudeMode>relativeToGround</altitudeMode>")
+        
+        
+        newFile.write("\n\t\t\t\t<coordinates>")
+
+        for point in fileText[1:]:
             splittedPoint = re.split(separator + r" *", point)
             
-            newFile.write("\n\t\t<Placemark>")
-            
-            if not rawName == "":
-                name = rawName
-                
-                for header in headers:
-                    name = name.replace("[" + header + "]", splittedPoint[headers.index(header)])
-                    
-                newFile.write("\n\t\t\t<name>" + name + "</name>")
-            
-            if not rawDescription == "":
-                description = rawDescription
-                
-                for header in headers:
-                    description = description.replace("[" + header + "]", splittedPoint[headers.index(header)])
-                    
-                newFile.write("\n\t\t\t<description>" + description + "</description>")
+            if not point == "":
+                if not altitudeHeader == "":
+                    newFile.write("\n\t\t\t\t\t" + splittedPoint[headers.index(longitudeHeader)] + "," + splittedPoint[headers.index(latitudeHeader)] + "," + splittedPoint[headers.index(altitudeHeader)])
+                else:
+                    newFile.write("\n\t\t\t\t\t" + splittedPoint[headers.index(longitudeHeader)] + "," + splittedPoint[headers.index(latitudeHeader)])
 
-            newFile.write("\n\t\t\t<Point>")
+        newFile.write("\n\t\t\t\t</coordinates>")
+        newFile.write("\n\t\t\t</LineString>")
+        newFile.write("\n\t\t</Placemark>")
+        newFile.write("\n\t</Document>")
+        newFile.write("\n</kml>")
 
-            if not altitudeHeader == "":
-                newFile.write("\n\t\t\t\t<coordinates>" + splittedPoint[headers.index(longitudeHeader)] + "," + splittedPoint[headers.index(latitudeHeader)] + "," + splittedPoint[headers.index(altitudeHeader)] + "</coordinates>")
-            else:
-                newFile.write("\n\t\t\t\t<coordinates>" + splittedPoint[headers.index(longitudeHeader)] + "," + splittedPoint[headers.index(latitudeHeader)] + "," + "</coordinates>")
+        newFile.close()  
 
-            newFile.write("\n\t\t\t</Point>")
-            
-            newFile.write("\n\t\t</Placemark>")
-
-    newFile.write("\n\t</Document>")
-    newFile.write("\n</kml>")
-
-    newFile.close()
-
-else:
+else: #There are NOT headers
     anyLine = re.split(separator + r" *", fileText[math.floor(len(fileText)/2)])
 
     print("Here you have a line: " + ", ".join(anyLine))
@@ -117,51 +186,112 @@ else:
     latitudeIndex = getNumber("Which is the column number for latitude? Start to count from 1: ", 1, len(anyLine)) - 1
     longitudeIndex = getNumber("Which is the column number for longitude? Start to count from 1: ", 1, len(anyLine)) - 1
     altitudeIndex = getNumber("Which is the column number for altitude? Start to count from 1 and type 0 to leave it blank: ", 0, len(anyLine)) - 1
+    
+    if not altitudeIndex == -1:
+        altitudeMode = getInList("Is the altitude relative to [sea] level or to [ground]?: ", ("sea", "ground"), ignoreCase = True)
+        extrude = getYesNo("Would you like to extrude shape?: ")
 
-    rawName = input("What name do you want to give to each point? You can use its values with [column] or leave it blank: ").replace(r"\n", "<br />")
-    rawDescription = input("What description do you want to give to each point? You can use its values with [column] or leave it blank: ").replace(r"\n", "<br />")
+    pointsOrLine = getInList("Would you like to get [points] or a [line]?: ", ("points", "line"), ignoreCase = True)
 
-    newFile = open(re.sub(r"(?:\.[^.]*)?$", ".kml", fileAddress), "w+")
-
-    newFile.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-    newFile.write("\n<kml xmlns=\"http://earth.google.com/kml/2.0\">")
-    newFile.write("\n\t<Document>")
-
-    for point in fileText:
+    if pointsOrLine == "points":    #There are points without headers
+        rawName = input("What name do you want to give to each point? You can use its values with [column] or leave it blank: ").replace(r"\n", "<br />")
+        rawDescription = input("What description do you want to give to each point? You can use its values with [column] or leave it blank: ").replace(r"\n", "<br />")
         
-        if not point == "":
+        newFile = open(re.sub(r"(?:\.[^.]*)?$", ".kml", fileAddress), "w+")
+
+        newFile.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+        newFile.write("\n<kml xmlns=\"http://www.opengis.net/kml/2.2\">")
+        newFile.write("\n\t<Document>")
+
+        for point in fileText:
+            
+            if not point == "":
+                splittedPoint = re.split(separator + r" *", point)
+                
+                newFile.write("\n\t\t<Placemark>")
+                
+                if not rawName == "":
+                    name = rawName
+                    
+                    for i in range(len(anyLine)):
+                        name = name.replace("[" + str(i+1) + "]", splittedPoint[i])
+                        
+                    newFile.write("\n\t\t\t<name>" + name + "</name>")
+                
+                if not rawDescription == "":
+                    description = rawDescription
+                    
+                    for i in range(len(anyLine)):
+                        description = description.replace("[" + str(i+1) + "]", splittedPoint[i])
+                        
+                    newFile.write("\n\t\t\t<description>" + description + "</description>")
+
+                newFile.write("\n\t\t\t<Point>")
+
+                if not altitudeIndex == -1:
+                    if extrude:
+                        newFile.write("\n\t\t\t\t<extrude>1</extrude>")
+                    else:
+                        newFile.write("\n\t\t\t\t<extrude>0</extrude>")
+
+                    if altitudeMode == "sea":
+                        newFile.write("\n\t\t\t\t<altitudeMode>absolute</altitudeMode>")
+                    else:
+                        newFile.write("\n\t\t\t\t<altitudeMode>relativeToGround</altitudeMode>")
+
+                if not altitudeIndex == -1:
+                    newFile.write("\n\t\t\t\t<coordinates>" + splittedPoint[longitudeIndex] + "," + splittedPoint[latitudeIndex] + "," + splittedPoint[altitudeIndex] + "</coordinates>")
+                else:
+                    newFile.write("\n\t\t\t\t<coordinates>" + splittedPoint[longitudeIndex] + "," + splittedPoint[latitudeIndex] + "</coordinates>")
+
+                newFile.write("\n\t\t\t</Point>")
+                
+                newFile.write("\n\t\t</Placemark>")
+
+        newFile.write("\n\t</Document>")
+        newFile.write("\n</kml>")
+
+        newFile.close()
+        
+    else:   #It's a LineString without headers
+        newFile = open(re.sub(r"(?:\.[^.]*)?$", ".kml", fileAddress), "w+")
+
+        newFile.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+        newFile.write("\n<kml xmlns=\"http://earth.google.com/kml/2.0\">")
+        newFile.write("\n\t<Document>")
+        newFile.write("\n\t\t<Placemark>")
+        newFile.write("\n\t\t\t<Style><PolyStyle><color>7fffffff</color><colorMode>normal</colorMode><fill>1</fill></PolyStyle></Style>")
+        newFile.write("\n\t\t\t<LineString>")
+
+        
+        if not altitudeIndex == -1:
+            if extrude:
+                newFile.write("\n\t\t\t\t<extrude>1</extrude>")
+            else:
+                newFile.write("\n\t\t\t\t<extrude>0</extrude>")
+
+            if altitudeMode == "sea":
+                newFile.write("\n\t\t\t\t<altitudeMode>absolute</altitudeMode>")
+            else:
+                newFile.write("\n\t\t\t\t<altitudeMode>relativeToGround</altitudeMode>")
+        
+        
+        newFile.write("\n\t\t\t\t<coordinates>")
+
+        for point in fileText[1:]:
             splittedPoint = re.split(separator + r" *", point)
             
-            newFile.write("\n\t\t<Placemark>")
-            
-            if not rawName == "":
-                name = rawName
-                
-                for i in range(len(anyLine)):
-                    name = name.replace("[" + str(i+1) + "]", splittedPoint[i])
-                    
-                newFile.write("\n\t\t\t<name>" + name + "</name>")
-            
-            if not rawDescription == "":
-                description = rawDescription
-                
-                for i in range(len(anyLine)):
-                    description = description.replace("[" + str(i+1) + "]", splittedPoint[i])
-                    
-                newFile.write("\n\t\t\t<description>" + description + "</description>")
+            if not point == "":
+                if not altitudeIndex == -1:
+                    newFile.write("\n\t\t\t\t\t" + splittedPoint[longitudeIndex] + "," + splittedPoint[latitudeIndex] + "," + splittedPoint[altitudeIndex])
+                else:
+                    newFile.write("\n\t\t\t\t\t" + splittedPoint[longitudeIndex] + "," + splittedPoint[latitudeIndex])
 
-            newFile.write("\n\t\t\t<Point>")
+        newFile.write("\n\t\t\t\t</coordinates>")
+        newFile.write("\n\t\t\t</LineString>")
+        newFile.write("\n\t\t</Placemark>")
+        newFile.write("\n\t</Document>")
+        newFile.write("\n</kml>")
 
-            if not altitudeIndex == -1:
-                newFile.write("\n\t\t\t\t<coordinates>" + splittedPoint[longitudeIndex] + "," + splittedPoint[latitudeIndex] + "," + splittedPoint[altitudeIndex] + "</coordinates>")
-            else:
-                newFile.write("\n\t\t\t\t<coordinates>" + splittedPoint[longitudeIndex] + "," + splittedPoint[latitudeIndex] + "," + "</coordinates>")
-
-            newFile.write("\n\t\t\t</Point>")
-            
-            newFile.write("\n\t\t</Placemark>")
-
-    newFile.write("\n\t</Document>")
-    newFile.write("\n</kml>")
-
-    newFile.close()
+        newFile.close()  
+        
